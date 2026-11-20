@@ -18,9 +18,25 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
     ...options,
   });
-  const data = await res.json();
+  const rawText = await res.text();
+  let data: Record<string, unknown> = {};
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      throw new Error(
+        res.ok
+          ? 'Invalid server response format.'
+          : `API error (${res.status}): ${rawText.slice(0, 120)}`
+      );
+    }
+  }
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    throw new Error(
+      typeof data.error === 'string' && data.error
+        ? data.error
+        : `Request failed (${res.status})`
+    );
   }
   return data as T;
 }

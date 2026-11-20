@@ -11,10 +11,20 @@ import type {
 } from '../types';
 import { BLOOD_TYPES } from '../shared/bloodLogic';
 
-const DB_PATH = path.resolve(process.cwd(), 'bloodline.db');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DB_PATH = process.env.SQLITE_DB_PATH
+  ? path.resolve(process.env.SQLITE_DB_PATH)
+  : isServerless
+  ? '/tmp/bloodline.db'
+  : path.resolve(process.cwd(), 'bloodline.db');
+
 export const db = new Database(DB_PATH);
 
-db.pragma('journal_mode = WAL');
+try {
+  db.pragma('journal_mode = WAL');
+} catch {
+  // Fallback to default journal mode if environment disallows WAL
+}
 db.pragma('foreign_keys = ON');
 
 export function initDatabase() {

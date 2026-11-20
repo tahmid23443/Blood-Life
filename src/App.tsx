@@ -154,12 +154,32 @@ export default function App() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws?userId=${encodeURIComponent(currentUser.id)}`;
     let closedByCleanup = false;
+    let wsOpened = false;
+    let wsFailures = 0;
+    let pollTimer: number | null = null;
+    let reconnectTimer: number | null = null;
+
+    function startPollingFallback() {
+      if (pollTimer !== null || closedByCleanup) return;
+      pollTimer = window.setInterval(() => {
+        if (currentUser?.id) {
+          refreshScopedData(currentUser.id).catch(() => {});
+        }
+      }, 4500);
+    }
 
     function connect() {
+      if (closedByCleanup) return;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        wsOpened = true;
+        wsFailures = 0;
+        if (pollTimer !== null) {
+          window.clearInterval(pollTimer);
+          pollTimer = null;
+        }
         ws.send(JSON.stringify({ type: 'auth', userId: currentUser!.id }));
       };
 
@@ -300,19 +320,26 @@ export default function App() {
       };
 
       ws.onclose = () => {
-        if (!closedByCleanup) {
-          setTimeout(connect, 2000);
+        if (closedByCleanup) return;
+        wsFailures += 1;
+        if (!wsOpened && wsFailures >= 2) {
+          // Serverless host (e.g., Vercel) without WebSocket upgrades: switch to HTTP polling
+          startPollingFallback();
+          return;
         }
+        reconnectTimer = window.setTimeout(connect, 2000);
       };
     }
 
     connect();
     return () => {
       closedByCleanup = true;
+      if (pollTimer !== null) window.clearInterval(pollTimer);
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, refreshScopedData]);
 
   function handleAuthenticated(user: UserProfile) {
     localStorage.setItem(STORAGE_KEY, user.id);

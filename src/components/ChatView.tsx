@@ -89,14 +89,19 @@ export function ChatView({
       return;
     }
     let active = true;
-    api
-      .getRoomMessages(activeRoomId)
-      .then((res) => {
-        if (active) setMessages(res.messages);
-      })
-      .catch(() => {});
+    const fetchRoom = () => {
+      api
+        .getRoomMessages(activeRoomId)
+        .then((res) => {
+          if (active) setMessages(res.messages);
+        })
+        .catch(() => {});
+    };
+    fetchRoom();
+    const timer = window.setInterval(fetchRoom, 4000);
     return () => {
       active = false;
+      window.clearInterval(timer);
     };
   }, [activeRoomId]);
 
