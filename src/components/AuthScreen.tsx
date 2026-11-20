@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { ArrowRight, Bike, Building2, Droplet, Droplets, HeartHandshake, LocateFixed, ShieldCheck } from 'lucide-react';
 import { BLOOD_TYPES } from '../shared/bloodLogic';
 import type { BloodType, UserProfile, UserRole } from '../types';
@@ -70,6 +70,8 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+
+
   function detectLiveGps() {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
     setGpsLoading(true);
@@ -86,6 +88,20 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
+  }
+
+  async function handleDemoLogin(demoEmail: string) {
+    setError('');
+    setLoading(true);
+    try {
+      await api.seedDemo();
+      const { user } = await api.login(demoEmail, 'demo123');
+      onAuthenticated(user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo login failed');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {

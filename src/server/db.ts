@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import bcrypt from 'bcryptjs';
 import type {
   AppNotification,
   BloodRequest,
@@ -186,6 +187,121 @@ export function initDatabase() {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+
+  seedDemoDatabase();
+}
+
+export function seedDemoDatabase() {
+  const count = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+  const passwordHash = bcrypt.hashSync('demo123', 8);
+
+  const tx = db.transaction(() => {
+    const users = [
+      { id: 'usr_needer', name: 'Tahmid Nirob', email: 'needer@demo.com', role: 'needer', blood_type: 'O+', phone: '+880 1711-223344', address: 'Dhanmondi 27, Dhaka', lat: 23.7465, lng: 90.3760 },
+      { id: 'usr_donor', name: 'Dr. Tanvir Rahman', email: 'donor@demo.com', role: 'donor', blood_type: 'A+', phone: '+880 1812-334455', address: 'Panthapath, Dhaka', lat: 23.7529, lng: 90.3816 },
+      { id: 'usr_donor2', name: 'Nusrat Jahan', email: 'donor2@demo.com', role: 'donor', blood_type: 'O+', phone: '+880 1913-445566', address: 'Gulshan 2, Dhaka', lat: 23.8048, lng: 90.4157 },
+      { id: 'usr_rider', name: 'Shaheen Express', email: 'rider@demo.com', role: 'rider', blood_type: 'B+', phone: '+880 1714-556677', address: 'Banani Road 11, Dhaka', lat: 23.7937, lng: 90.4066, vehicle_type: 'Cold-Box Motorcycle' },
+      { id: 'usr_hospital', name: 'Dhaka Medical Blood Bank', email: 'hospital@demo.com', role: 'hospital', blood_type: 'O+', phone: '+880 2-9661301', address: 'Shahbagh Medical Hub, Dhaka', lat: 23.7389, lng: 90.3958, hospital_name: 'Dhaka Medical Blood Bank' },
+      { id: 'usr_gov', name: 'DGHS Immunization HQ', email: 'gov@demo.com', role: 'government', blood_type: 'A+', phone: '+880 2-7171212', address: 'Agargaon Health Directorate, Dhaka', lat: 23.7751, lng: 90.3801, hospital_name: 'DGHS Tika Care Unit' },
+    ];
+
+    const insertUser = db.prepare(`
+      INSERT OR REPLACE INTO users (id, name, email, password_hash, role, blood_type, phone, address, lat, lng, is_available, donations_count, requests_count, vehicle_type, hospital_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 3, 1, ?, ?)
+    `);
+
+    for (const u of users) {
+      insertUser.run(u.id, u.name, u.email, passwordHash, u.role, u.blood_type, u.phone, u.address, u.lat, u.lng, u.vehicle_type || null, u.hospital_name || null);
+    }
+
+    const invInsert = db.prepare('INSERT OR REPLACE INTO hospital_inventory (hospital_id, blood_type, units) VALUES (?, ?, ?)');
+    for (const bt of BLOOD_TYPES) {
+      invInsert.run('usr_hospital', bt, bt === 'O+' || bt === 'A+' ? 12 : 5);
+    }
+
+    db.prepare(`
+      INSERT OR REPLACE INTO blood_requests (id, needer_id, blood_type, units, urgency, status, pickup_type, provider_id, rider_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, rider_lat, rider_lng, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'req_demo_01',
+      'usr_needer',
+      'O+',
+      2,
+      'critical',
+      'rider_dispatched',
+      'hospital',
+      'usr_hospital',
+      'usr_rider',
+      'Dhaka Medical Blood Bank, Shahbagh',
+      23.7389,
+      90.3958,
+      'Dhanmondi 27, Dhaka (Needer Home)',
+      23.7465,
+      90.3760,
+      23.7420,
+      90.3850,
+      'Urgent surgery requirement. Please dispatch with cold-box rider.'
+    );
+
+    db.prepare(`
+      INSERT OR REPLACE INTO tika_campaigns (id, gov_user_id, title, vaccine_name, target_group, dose_schedule, total_slots, venue_name, venue_address, lat, lng, start_date, end_date, description, home_visit_available, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'tika_demo_01',
+      'usr_gov',
+      'National HPV & Booster Immunization Drive 2026',
+      'Gardasil-9 / HPV & Tetanus Booster',
+      'Girls aged 10-15 & Adults',
+      'Single Dose / Annual Booster',
+      250,
+      'Dhaka Medical College Centenary Hall',
+      'Shahbagh, Dhaka',
+      23.7395,
+      90.3962,
+      '2026-11-25',
+      '2026-11-30',
+      'Government authorized nationwide vaccination campaign with verified digital QR Tika Cards and home visit support.',
+      1,
+      'ACTIVE'
+    );
+
+    db.prepare(`
+      INSERT OR REPLACE INTO tika_registrations (id, campaign_id, user_id, beneficiary_name, beneficiary_age, nid_or_brn, phone, dose_number, delivery_mode, address, lat, lng, preferred_date, preferred_slot, tika_card_code, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'reg_demo_01',
+      'tika_demo_01',
+      'usr_needer',
+      'Sadia Nirob',
+      14,
+      'BRN-2012-88923411',
+      '+880 1711-223344',
+      1,
+      'camp',
+      'Dhanmondi 27, Dhaka',
+      23.7465,
+      90.3760,
+      '2026-11-26',
+      'Morning (09:00 AM - 12:00 PM)',
+      'TIKA-BD-8841-2026',
+      'CONFIRMED'
+    );
+
+    db.prepare(`
+      INSERT OR REPLACE INTO chat_messages (id, request_id, room_id, sender_id, receiver_id, message, msg_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'msg_demo_1',
+      'req_demo_01',
+      'req_req_demo_01',
+      'usr_rider',
+      'usr_needer',
+      'Hello Tahmid! I have picked up 2 units of O+ blood from Dhaka Medical Bank in my cold-box. Arriving at Dhanmondi 27 in 8 minutes!',
+      'text'
+    );
+  });
+
+  tx();
 }
 
 export function sanitizeUser(row: Record<string, unknown>): UserProfile {

@@ -12,6 +12,7 @@ import {
   Radio,
   Search,
   SlidersHorizontal,
+  Sparkles,
   Syringe,
 } from 'lucide-react';
 import { formatRequestStatusLabel, haversineKm } from '../shared/bloodLogic';
@@ -45,6 +46,7 @@ interface HomePageProps {
   onNavigate: (route: AppRoute) => void;
   onSelectRequestAndMap: (requestId: string) => void;
   onToggleAvailability: () => Promise<void>;
+  onOpenAi: () => void;
 }
 
 export function HomePage({
@@ -62,6 +64,7 @@ export function HomePage({
   onNavigate,
   onSelectRequestAndMap,
   onToggleAvailability,
+  onOpenAi,
 }: HomePageProps) {
   const isGov = currentUser.role === 'government';
 
@@ -152,6 +155,15 @@ export function HomePage({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              aria-label="Open AI Assistant"
+              onClick={onOpenAi}
+              className="w-11 h-11 rounded-full bg-white text-[#DC1423] flex items-center justify-center hover:bg-red-50 transition-colors shadow-sm"
+              title="Blood Life AI Assistant"
+            >
+              <Sparkles className="w-5 h-5 fill-[#DC1423]" />
+            </button>
             <button
               type="button"
               aria-label="Open notifications"

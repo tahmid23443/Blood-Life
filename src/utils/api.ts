@@ -48,6 +48,12 @@ export interface NearbyCounts {
 }
 
 export const api = {
+  seedDemo: () => requestJson<{ ok: boolean }>('/api/demo/seed', { method: 'POST' }),
+  consultAi: (prompt: string, context?: unknown) =>
+    requestJson<{ answer: string }>('/api/ai/consult', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, context }),
+    }),
   signup: (payload: {
     name: string;
     email: string;

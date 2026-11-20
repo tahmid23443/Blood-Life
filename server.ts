@@ -2,7 +2,6 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer as createViteServer } from 'vite';
 import { createApiApp } from './src/server/app';
 import type { BloodRequest } from './src/types';
 
@@ -63,8 +62,10 @@ const app = createApiApp({
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
+const PORT = Number(process.env.PORT) || 3000;
+
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url || '/ws', 'http://localhost:3000');
+  const url = new URL(req.url || '/ws', `http://localhost:${PORT}`);
   const initialUserId = url.searchParams.get('userId');
   const client: ConnectedClient = { ws, userId: initialUserId };
   clients.add(client);
@@ -93,6 +94,7 @@ async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -106,8 +108,8 @@ async function startServer() {
     });
   }
 
-  server.listen(3000, '0.0.0.0', () => {
-    console.log('Blood Life server running on http://0.0.0.0:3000');
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Blood Life server running on http://0.0.0.0:${PORT}`);
   });
 }
 

@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { GoogleGenAI } from '@google/genai';
 import {
   createNotification,
   db,
@@ -15,6 +16,7 @@ import {
   getTikaRegistrationsForUser,
   initDatabase,
   sanitizeUser,
+  seedDemoDatabase,
 } from './db';
 import {
   BLOOD_TYPES,
@@ -71,6 +73,56 @@ export function createApiApp(realtime: RealtimeHooks = NOOP_REALTIME) {
       ok: true,
       runtime: process.env.VERCEL ? 'vercel-serverless' : 'node-server',
     });
+  });
+
+  // Demo seed endpoint
+  app.post('/api/demo/seed', (_req, res) => {
+    try {
+      seedDemoDatabase();
+      res.json({ ok: true, message: 'Demo database seeded successfully.' });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to seed demo data' });
+    }
+  });
+
+  // AI Health & Dispatch Consultant (gemini-4-hydrogen)
+  app.post('/api/ai/consult', async (req, res) => {
+    try {
+      const { prompt, context } = req.body || {};
+      if (!prompt) {
+        res.status(400).json({ error: 'Prompt is required.' });
+        return;
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+        return;
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const systemInstruction = `You are "Blood Life AI", an expert emergency blood dispatch and immunization health assistant for the Blood Life platform in Bangladesh. You help blood needers find stock, donors connect with requests, riders navigate securely, and citizens understand Government Tika Care immunization schedules. Keep answers concise, helpful, and empathetic. Context: ${JSON.stringify(context || {})}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: String(prompt),
+        config: {
+          systemInstruction,
+        },
+      });
+
+      res.json({ answer: response.text || 'No response generated.' });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'AI consultation failed' });
+    }
   });
 
   // --- AUTH ROUTES (Real Sign-Up & Sign-In Only) ---

@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
+import { AiAssistantModal } from './components/AiAssistantModal';
 import { ChatView } from './components/ChatView';
 import { DirectoryPage } from './components/DirectoryPages';
 import { DonorProfileView } from './components/DonorProfileView';
@@ -65,6 +66,7 @@ export default function App() {
     lng: 90.376,
   });
   const [toastAlert, setToastAlert] = useState<{ title: string; body: string } | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(() =>
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
   );
@@ -700,6 +702,7 @@ export default function App() {
                 setRoute('map');
               }}
               onToggleAvailability={handleToggleAvailability}
+              onOpenAi={() => setAiModalOpen(true)}
             />
           )}
 
@@ -910,6 +913,12 @@ export default function App() {
             </button>
           </nav>
         )}
+
+        <AiAssistantModal
+          currentUser={currentUser}
+          isOpen={aiModalOpen}
+          onClose={() => setAiModalOpen(false)}
+        />
       </div>
     </div>
   );
